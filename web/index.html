@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>3D Raytracer - GPU Accelerated</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <button id="raytracerMode" class="mode-btn active">Raytracer</button>
+            <button id="editorMode" class="mode-btn">Scene Editor</button>
+        </div>
+
+        <!-- Raytracer View -->
+        <div id="raytracerView" class="view-container active">
+            <div class="container">
+            <header class="header">
+                <h1><span class="accent">&lt;/&gt;</span> 3D Raytracer <span class="accent">&lt;/&gt;</span></h1>
+                <p class="subtitle">GPU-accelerated real-time raytracing engine</p>
+                <div class="fps-counter">
+                    <span>FPS: </span><span id="fpsDisplay">0</span>
+                </div>
+            </header>
+            
+            <div class="main-content">
+                <div class="canvas-container">
+                    <canvas id="raytracerCanvas" width="800" height="600" tabindex="0"></canvas>
+                    <div class="canvas-overlay">
+                        <div class="controls-help">
+                            <div>WASD: Move Camera</div>
+                            <div>Click: Mouse Look</div>
+                            <div>ESC: Release Mouse</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-panel">
+                    <div class="control-section">
+                        <h3><span class="accent">//</span> Scene Info</h3>
+                        <div class="info-item">
+                            <span>Objects in Scene:</span>
+                            <span id="raytracerObjectCount">0</span>
+                        </div>
+                        <div class="info-item">
+                            <span>Switch to Scene Editor to modify scene</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-section">
+                        <h3><span class="accent">//</span> Camera</h3>
+                        <div class="parameter-group">
+                            <div class="parameter">
+                                <label>Movement Speed: <span id="speedValue">5.0</span></label>
+                                <input type="range" id="moveSpeed" min="0.5" max="15" value="5" step="0.5" class="range-input">
+                            </div>
+                            <div class="parameter">
+                                <label>Mouse Sensitivity: <span id="sensitivityValue">0.3</span></label>
+                                <input type="range" id="mouseSensitivity" min="0.1" max="2" value="0.3" step="0.1" class="range-input">
+                            </div>
+                        </div>
+                        <button id="resetCamera">RESET CAMERA</button>
+                    </div>
+                    
+                    <div class="control-section">
+                        <h3><span class="accent">//</span> Scene I/O</h3>
+                        <div class="button-group">
+                            <button id="exportScene">EXPORT JSON</button>
+                            <button id="importScene">IMPORT JSON</button>
+                            <input type="file" id="fileInput" accept=".json" style="display: none;">
+                        </div>
+                        <div class="button-group">
+                            <button id="loadBlenderScene">LOAD BLENDER</button>
+                            <input type="file" id="blenderInput" accept=".json" style="display: none;">
+                        </div>
+                    </div>
+                    
+                    <div class="control-section">
+                        <h3><span class="accent">//</span> Presets</h3>
+                        <div class="button-group">
+                            <button id="cornellBox" class="preset-btn">Cornell Box</button>
+                            <button id="glassScene" class="preset-btn">Glass Scene</button>
+                            <button id="metalScene" class="preset-btn">Metal Scene</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-panel">
+                <h3><span class="accent">//</span> Performance</h3>
+                <div class="info-item">
+                    <span>Frame Time:</span>
+                    <span id="frameTime">0ms</span>
+                </div>
+                <div class="info-item">
+                    <span>Resolution:</span>
+                    <span id="resolution">800x600</span>
+                </div>
+                <div class="info-item">
+                    <span>Objects:</span>
+                    <span id="objectCount">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scene Editor View -->
+        <div id="editorView" class="view-container">
+            <div class="editor-container">
+                <!-- Control Panel -->
+                <div class="editor-control-panel">
+                    <div class="control-section">
+                        <h3><span class="accent">//</span> Scene Objects</h3>
+                        <div class="button-group">
+                            <button id="editorAddSphere" class="primary">Add Sphere</button>
+                            <button id="editorClearScene" class="danger">Clear Scene</button>
+                            <button id="editorRandomScene">Random Scene</button>
+                        </div>
+                        
+                        <div class="object-list" id="editorObjectList">
+                            <!-- Objects will be listed here -->
+                        </div>
+                    </div>
+
+                    <div class="control-section">
+                        <h3><span class="accent">//</span> Object Properties</h3>
+                        <div class="object-properties" id="editorObjectProperties">
+                            <div class="parameter">
+                                <label>Position X: <span id="editorPosXValue">0.0</span></label>
+                                <input type="range" id="editorPosX" min="-10" max="10" value="0" step="0.1" class="range-input">
+                            </div>
+                            <div class="parameter">
+                                <label>Position Y: <span id="editorPosYValue">0.0</span></label>
+                                <input type="range" id="editorPosY" min="-5" max="5" value="0" step="0.1" class="range-input">
+                            </div>
+                            <div class="parameter">
+                                <label>Position Z: <span id="editorPosZValue">0.0</span></label>
+                                <input type="range" id="editorPosZ" min="-10" max="10" value="0" step="0.1" class="range-input">
+                            </div>
+                            <div class="parameter">
+                                <label>Radius: <span id="editorRadiusValue">1.0</span></label>
+                                <input type="range" id="editorRadius" min="0.1" max="3" value="1" step="0.1" class="range-input">
+                            </div>
+                            <div class="parameter">
+                                <label>Material:</label>
+                                <select id="editorMaterialType" class="select-input">
+                                    <option value="0">Lambertian</option>
+                                    <option value="1">Metal</option>
+                                    <option value="2">Dielectric (Glass)</option>
+                                </select>
+                            </div>
+                            <div class="parameter">
+                                <label>Color:</label>
+                                <input type="color" id="editorObjectColor" value="#ff6b6b" class="color-input">
+                            </div>
+                            <button id="applyProperties" class="primary">Apply Changes</button>
+                        </div>
+                    </div>
+
+                    <div class="control-section">
+                        <h3><span class="accent">//</span> Camera Control</h3>
+                        <div class="parameter">
+                            <label>Camera X: <span id="editorCamXValue">0.0</span></label>
+                            <input type="range" id="editorCamX" min="-20" max="20" value="0" step="0.5" class="range-input">
+                        </div>
+                        <div class="parameter">
+                            <label>Camera Y: <span id="editorCamYValue">2.0</span></label>
+                            <input type="range" id="editorCamY" min="-10" max="10" value="2" step="0.5" class="range-input">
+                        </div>
+                        <div class="parameter">
+                            <label>Camera Z: <span id="editorCamZValue">5.0</span></label>
+                            <input type="range" id="editorCamZ" min="-20" max="20" value="5" step="0.5" class="range-input">
+                        </div>
+                        <button id="editorResetCamera">Reset Camera</button>
+                    </div>
+                </div>
+
+                <!-- View Panels -->
+                <div class="view-panels">
+                    <!-- Top View -->
+                    <div class="view-panel">
+                        <div class="view-label">Top View (XZ)</div>
+                        <canvas class="view-canvas" id="topView" width="400" height="300"></canvas>
+                        <div class="coordinates" id="topCoords">X: 0.0, Z: 0.0</div>
+                    </div>
+
+                    <!-- Side View -->
+                    <div class="view-panel">
+                        <div class="view-label">Side View (XY)</div>
+                        <canvas class="view-canvas" id="sideView" width="400" height="300"></canvas>
+                        <div class="coordinates" id="sideCoords">X: 0.0, Y: 0.0</div>
+                    </div>
+
+                    <!-- Front View -->
+                    <div class="view-panel">
+                        <div class="view-label">Front View (YZ)</div>
+                        <canvas class="view-canvas" id="frontView" width="400" height="300"></canvas>
+                        <div class="coordinates" id="frontCoords">Y: 0.0, Z: 0.0</div>
+                    </div>
+
+                    <!-- 3D Preview -->
+                    <div class="view-panel">
+                        <div class="view-label">3D Preview</div>
+                        <canvas class="view-canvas" id="previewCanvas" width="400" height="300"></canvas>
+                        <div class="coordinates" id="previewCoords">3D Scene Preview</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script type="module" src="script.js"></script>
+    </body>
+</html>

@@ -183,8 +183,8 @@ class RaytracerApp {
         if (this.keys['KeyS']) forward -= speed;
         if (this.keys['KeyA']) right -= speed;
         if (this.keys['KeyD']) right += speed;
-        if (this.keys['Space']) up += speed;
-        if (this.keys['ShiftLeft']) up -= speed;
+        if (this.keys['KeyE']) up += speed;  // E to go up
+        if (this.keys['KeyQ']) up -= speed;  // Q to go down
         
         if (forward !== 0 || right !== 0 || up !== 0) {
             this.raytracer.move_camera(forward, right, up);

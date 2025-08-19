@@ -47,27 +47,15 @@ impl Camera {
     }
 
     pub fn move_relative(&mut self, forward: f32, right: f32, up: f32) {
-        // Debug: let's use a simple coordinate system
-        // X = right, Y = up, Z = into screen (so -Z = forward)
-        // Yaw = rotation around Y axis
+        let movement_yaw = -self.yaw;
+        let cos_yaw = movement_yaw.cos();
+        let sin_yaw = movement_yaw.sin();
 
-        // For horizontal movement, ignore pitch completely
-        let cos_yaw = self.yaw.cos();
-        let sin_yaw = self.yaw.sin();
-
-        // Forward vector in XZ plane (Y=0, horizontal movement only)
-        // In a right-handed system with Z pointing into screen:
-        // - Yaw 0 should point in -Z direction (forward into screen)
-        // - Yaw 90° should point in -X direction (left)
-        let forward_vec = Vec3::new(sin_yaw, 0.0, cos_yaw);
-
-        // Right vector perpendicular to forward in XZ plane
+        let forward_vec = Vec3::new(-sin_yaw, 0.0, -cos_yaw);
         let right_vec = Vec3::new(cos_yaw, 0.0, -sin_yaw);
 
-        // Up is always world up
         let up_vec = Vec3::new(0.0, 1.0, 0.0);
 
-        // Apply movement
         self.position = self.position + forward_vec * forward;
         self.position = self.position + right_vec * right;
         self.position = self.position + up_vec * up;
@@ -98,26 +86,24 @@ impl Camera {
     }
 
     fn update_vectors(&mut self) {
-        // Calculate forward vector for LOOKING (not movement)
-        // Use the same coordinate system: X=right, Y=up, Z=into screen
-        // Yaw 0 = looking forward (-Z), Pitch 0 = looking horizontally
-
         let cos_yaw = self.yaw.cos();
         let sin_yaw = self.yaw.sin();
         let cos_pitch = self.pitch.cos();
         let sin_pitch = self.pitch.sin();
 
-        // Forward vector for looking direction
-        self.forward = Vec3::new(sin_yaw * cos_pitch, sin_pitch, -cos_yaw * cos_pitch).normalize();
+        let horizontal_forward = Vec3::new(-sin_yaw, 0.0, -cos_yaw);
 
-        // ALWAYS use world up - no roll ever
+        self.forward = Vec3::new(
+            horizontal_forward.x * cos_pitch,
+            sin_pitch,
+            horizontal_forward.z * cos_pitch,
+        )
+        .normalize();
+
         self.up = Vec3::new(0.0, 1.0, 0.0);
 
-        // Right vector should be horizontal and perpendicular to the HORIZONTAL component of forward
-        // This ensures no roll when looking up/down
-        self.right = Vec3::new(cos_yaw, 0.0, sin_yaw).normalize();
+        self.right = Vec3::new(cos_yaw, 0.0, -sin_yaw).normalize();
 
-        // Update target for consistency
         self.target = self.position + self.forward;
     }
 

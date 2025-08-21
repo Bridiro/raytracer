@@ -13,7 +13,7 @@ pub struct Material {
     pub material_type: MaterialType,
     pub albedo: Vec3,
     pub roughness: f32,
-    pub ior: f32, // Index of refraction
+    pub ior: f32,
 }
 
 impl Material {

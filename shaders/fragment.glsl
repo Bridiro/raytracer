@@ -10,7 +10,8 @@ uniform vec3 u_camera_up;
 // Scene data structures
 struct Material {
     vec3 albedo;
-    int material_type; // 0: Lambertian, 1: Metal, 2: Dielectric
+    // 0: Lambertian, 1: Metal, 2: Dielectric
+    int material_type;
     float roughness;
     float ior;
 };
@@ -29,6 +30,35 @@ struct Plane {
     vec3 normal;
     vec3 albedo;
     int material_type;
+};
+
+struct Box {
+    vec3 center;
+    vec3 size;
+    vec3 albedo;
+    int material_type;
+    float roughness;
+    float ior;
+};
+
+struct Cylinder {
+    vec3 base;
+    vec3 axis;
+    float radius;
+    vec3 albedo;
+    int material_type;
+    float roughness;
+    float ior;
+};
+
+struct Triangle {
+    vec3 v0;
+    vec3 v1;
+    vec3 v2;
+    vec3 albedo;
+    int material_type;
+    float roughness;
+    float ior;
 };
 
 struct Light {
@@ -56,6 +86,15 @@ uniform Sphere u_spheres[10];
 
 uniform int u_plane_count;
 uniform Plane u_planes[5];
+
+uniform int u_box_count;
+uniform Box u_boxes[5];
+
+uniform int u_cylinder_count;
+uniform Cylinder u_cylinders[5];
+
+uniform int u_triangle_count;
+uniform Triangle u_triangles[10];
 
 uniform int u_light_count;
 uniform Light u_lights[4];
@@ -154,6 +193,124 @@ bool hitPlane(Plane plane, Ray ray, float t_min, float t_max, out HitRecord rec)
     return false;
 }
 
+bool hitBox(Box box_obj, Ray ray, float t_min, float t_max, out HitRecord rec) {
+    vec3 m = 1.0 / ray.direction;
+    vec3 n = m * (ray.origin - box_obj.center);
+    vec3 k = abs(m) * box_obj.size * 0.5;
+    
+    vec3 t1 = -n - k;
+    vec3 t2 = -n + k;
+    
+    float t_near = max(max(t1.x, t1.y), t1.z);
+    float t_far = min(min(t2.x, t2.y), t2.z);
+    
+    if (t_near > t_far || t_far < t_min || t_near > t_max) return false;
+    
+    float t = (t_near > t_min) ? t_near : t_far;
+    if (t < t_min || t > t_max) return false;
+    
+    rec.t = t;
+    rec.point = ray.origin + t * ray.direction;
+    
+    // Calculate normal
+    vec3 d = (rec.point - box_obj.center) / (box_obj.size * 0.5);
+    vec3 abs_d = abs(d);
+    float max_component = max(max(abs_d.x, abs_d.y), abs_d.z);
+    
+    if (abs_d.x == max_component) {
+        rec.normal = vec3(sign(d.x), 0.0, 0.0);
+    } else if (abs_d.y == max_component) {
+        rec.normal = vec3(0.0, sign(d.y), 0.0);
+    } else {
+        rec.normal = vec3(0.0, 0.0, sign(d.z));
+    }
+    
+    rec.front_face = dot(ray.direction, rec.normal) < 0.0;
+    rec.normal = rec.front_face ? rec.normal : -rec.normal;
+    rec.material.albedo = box_obj.albedo;
+    rec.material.material_type = box_obj.material_type;
+    rec.material.roughness = box_obj.roughness;
+    rec.material.ior = box_obj.ior;
+    
+    return true;
+}
+
+bool hitCylinder(Cylinder cylinder, Ray ray, float t_min, float t_max, out HitRecord rec) {
+    vec3 oc = ray.origin - cylinder.base;
+    vec3 axis = normalize(cylinder.axis);
+    
+    float a = dot(ray.direction, ray.direction) - dot(ray.direction, axis) * dot(ray.direction, axis);
+    float b = 2.0 * (dot(oc, ray.direction) - dot(ray.direction, axis) * dot(oc, axis));
+    float c = dot(oc, oc) - dot(oc, axis) * dot(oc, axis) - cylinder.radius * cylinder.radius;
+    
+    float discriminant = b * b - 4.0 * a * c;
+    if (discriminant < 0.0) return false;
+    
+    float sqrt_discriminant = sqrt(discriminant);
+    float t1 = (-b - sqrt_discriminant) / (2.0 * a);
+    float t2 = (-b + sqrt_discriminant) / (2.0 * a);
+    
+    float t = (t1 >= t_min && t1 <= t_max) ? t1 : t2;
+    if (t < t_min || t > t_max) return false;
+    
+    vec3 hit_point = ray.origin + t * ray.direction;
+    float projection = dot(hit_point - cylinder.base, axis);
+    float cylinder_length = length(cylinder.axis);
+    
+    if (projection < 0.0 || projection > cylinder_length) return false;
+    
+    rec.t = t;
+    rec.point = hit_point;
+    
+    vec3 center_line_point = cylinder.base + projection * axis;
+    rec.normal = normalize(hit_point - center_line_point);
+    rec.front_face = dot(ray.direction, rec.normal) < 0.0;
+    rec.normal = rec.front_face ? rec.normal : -rec.normal;
+    rec.material.albedo = cylinder.albedo;
+    rec.material.material_type = cylinder.material_type;
+    rec.material.roughness = cylinder.roughness;
+    rec.material.ior = cylinder.ior;
+    
+    return true;
+}
+
+bool hitTriangle(Triangle triangle, Ray ray, float t_min, float t_max, out HitRecord rec) {
+    // Möller-Trumbore intersection algorithm
+    vec3 edge1 = triangle.v1 - triangle.v0;
+    vec3 edge2 = triangle.v2 - triangle.v0;
+    vec3 h = cross(ray.direction, edge2);
+    float a = dot(edge1, h);
+    
+    if (a > -0.00001 && a < 0.00001) return false; // Ray is parallel to triangle
+    
+    float f = 1.0 / a;
+    vec3 s = ray.origin - triangle.v0;
+    float u = f * dot(s, h);
+    
+    if (u < 0.0 || u > 1.0) return false;
+    
+    vec3 q = cross(s, edge1);
+    float v = f * dot(ray.direction, q);
+    
+    if (v < 0.0 || u + v > 1.0) return false;
+    
+    float t = f * dot(edge2, q);
+    
+    if (t < t_min || t > t_max) return false;
+    
+    rec.t = t;
+    rec.point = ray.origin + t * ray.direction;
+    rec.normal = normalize(cross(edge1, edge2));
+    rec.front_face = dot(ray.direction, rec.normal) < 0.0;
+    rec.normal = rec.front_face ? rec.normal : -rec.normal;
+    rec.material.albedo = triangle.albedo;
+    rec.material.material_type = triangle.material_type;
+    rec.material.roughness = triangle.roughness;
+    rec.material.ior = triangle.ior;
+    
+    return true;
+}
+
 bool hitWorld(Ray ray, float t_min, float t_max, out HitRecord rec) {
     HitRecord temp_rec;
     bool hit_anything = false;
@@ -179,76 +336,114 @@ bool hitWorld(Ray ray, float t_min, float t_max, out HitRecord rec) {
         }
     }
     
+    // Check boxes
+    for (int i = 0; i < 5; i++) {
+        if (i >= u_box_count) break;
+        if (hitBox(u_boxes[i], ray, t_min, closest_so_far, temp_rec)) {
+            hit_anything = true;
+            closest_so_far = temp_rec.t;
+            rec = temp_rec;
+        }
+    }
+    
+    // Check cylinders
+    for (int i = 0; i < 5; i++) {
+        if (i >= u_cylinder_count) break;
+        if (hitCylinder(u_cylinders[i], ray, t_min, closest_so_far, temp_rec)) {
+            hit_anything = true;
+            closest_so_far = temp_rec.t;
+            rec = temp_rec;
+        }
+    }
+    
+    // Check triangles
+    for (int i = 0; i < 10; i++) {
+        if (i >= u_triangle_count) break;
+        if (hitTriangle(u_triangles[i], ray, t_min, closest_so_far, temp_rec)) {
+            hit_anything = true;
+            closest_so_far = temp_rec.t;
+            rec = temp_rec;
+        }
+    }
+    
     return hit_anything;
 }
 
 vec3 rayColor(Ray ray, vec2 seed) {
-    vec3 color = vec3(1.0);
-    vec3 attenuation;
+    vec3 final_color = vec3(0.0);
+    vec3 attenuation = vec3(1.0);
     
-    for (int depth = 0; depth < 8; depth++) {
+    for (int depth = 0; depth < 12; depth++) {
         HitRecord rec;
         if (hitWorld(ray, 0.001, 100.0, rec)) {
-            // Improved lighting calculation
-            vec3 ambient = vec3(0.25); // Increased ambient light
-            vec3 diffuse = vec3(0.0);
-            
-            // Calculate lighting from all lights
-            for (int i = 0; i < 4; i++) {
-                if (i >= u_light_count) break;
-                
-                vec3 light_dir = normalize(u_lights[i].position - rec.point);
-                float light_distance = length(u_lights[i].position - rec.point);
-                
-                // Simple shadow test
-                Ray shadow_ray;
-                shadow_ray.origin = rec.point + rec.normal * 0.001;
-                shadow_ray.direction = light_dir;
-                
-                HitRecord shadow_rec;
-                bool in_shadow = hitWorld(shadow_ray, 0.001, light_distance - 0.001, shadow_rec);
-                
-                if (!in_shadow) {
-                    float n_dot_l = max(dot(rec.normal, light_dir), 0.0);
-                    float attenuation_factor = u_lights[i].intensity / (light_distance * light_distance + 1.0);
-                    diffuse += u_lights[i].color * n_dot_l * attenuation_factor;
-                }
-            }
-            
-            vec3 lighting = ambient + diffuse;
-            color *= rec.material.albedo * lighting;
             
             // Material-based ray scattering
             if (rec.material.material_type == 0) { // Lambertian
+                // Direct lighting calculation for Lambertian surfaces
+                vec3 direct_light = vec3(0.0);
+                
+                // Calculate lighting from all lights
+                for (int i = 0; i < 4; i++) {
+                    if (i >= u_light_count) break;
+                    
+                    vec3 light_dir = normalize(u_lights[i].position - rec.point);
+                    float light_distance = length(u_lights[i].position - rec.point);
+                    
+                    // Shadow test
+                    Ray shadow_ray;
+                    shadow_ray.origin = rec.point + rec.normal * 0.001;
+                    shadow_ray.direction = light_dir;
+                    
+                    HitRecord shadow_rec;
+                    bool in_shadow = hitWorld(shadow_ray, 0.001, light_distance - 0.001, shadow_rec);
+                    
+                    if (!in_shadow) {
+                        float n_dot_l = max(dot(rec.normal, light_dir), 0.0);
+                        float attenuation_factor = u_lights[i].intensity / (light_distance * light_distance + 1.0);
+                        direct_light += u_lights[i].color * n_dot_l * attenuation_factor;
+                    }
+                }
+                
+                // Add ambient lighting
+                vec3 ambient = vec3(0.1);
+                final_color += attenuation * rec.material.albedo * (direct_light + ambient);
+                
+                // Continue with indirect lighting (global illumination)
                 vec3 target = rec.point + rec.normal + randomInUnitSphere(seed + float(depth));
-                ray.origin = rec.point;
+                ray.origin = rec.point + rec.normal * 0.001;
                 ray.direction = normalize(target - rec.point);
-                attenuation = rec.material.albedo;
+                attenuation *= rec.material.albedo * 0.5; // Reduce energy for bounces
+                
             } else if (rec.material.material_type == 1) { // Metal
                 vec3 reflected = reflectRay(normalize(ray.direction), rec.normal);
-                ray.origin = rec.point;
+                ray.origin = rec.point + rec.normal * 0.001;
                 ray.direction = normalize(reflected + rec.material.roughness * randomInUnitSphere(seed + float(depth)));
-                attenuation = rec.material.albedo;
+                
                 if (dot(ray.direction, rec.normal) <= 0.0) {
-                    color = vec3(0.0);
-                    break;
+                    break; // Ray absorbed
                 }
-            } else if (rec.material.material_type == 2) { // Dielectric
-                // Glass/dielectric materials
+                
+                attenuation *= rec.material.albedo;
+                
+            } else if (rec.material.material_type == 2) { // Dielectric (Glass)
+                // Improved glass with proper transparency
                 float ni_over_nt = rec.front_face ? (1.0 / rec.material.ior) : rec.material.ior;
                 
                 vec3 unit_direction = normalize(ray.direction);
                 float cos_theta = min(dot(-unit_direction, rec.normal), 1.0);
                 float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
                 
-                if (ni_over_nt * sin_theta > 1.0) {
+                bool cannot_refract = ni_over_nt * sin_theta > 1.0;
+                
+                if (cannot_refract) {
                     // Total internal reflection
                     vec3 reflected = reflectRay(unit_direction, rec.normal);
                     ray.origin = rec.point + rec.normal * 0.001;
                     ray.direction = reflected;
                 } else {
-                    // Refraction vs reflection based on Fresnel equations
+                    // Calculate Fresnel reflectance
                     float reflect_prob = schlick(cos_theta, rec.material.ior);
+                    
                     if (random(seed + float(depth) * 10.0) < reflect_prob) {
                         // Reflection
                         vec3 reflected = reflectRay(unit_direction, rec.normal);
@@ -261,7 +456,7 @@ vec3 rayColor(Ray ray, vec2 seed) {
                             ray.origin = rec.point - rec.normal * 0.001;
                             ray.direction = refracted;
                         } else {
-                            // Fallback to reflection if refraction fails
+                            // Fallback to reflection
                             vec3 reflected = reflectRay(unit_direction, rec.normal);
                             ray.origin = rec.point + rec.normal * 0.001;
                             ray.direction = reflected;
@@ -269,21 +464,25 @@ vec3 rayColor(Ray ray, vec2 seed) {
                     }
                 }
                 
-                // Glass absorbs very little light but can tint
-                attenuation = rec.material.albedo * 0.95 + vec3(0.05);
+                // Glass tinting and absorption
+                attenuation *= rec.material.albedo;
+                // Very little light absorption for clear glass
+                attenuation *= 0.98;
             }
             
-            color *= attenuation;
         } else {
-            // Sky gradient - simple blue to white gradient
+            // Sky/environment lighting
             float t = 0.5 * (normalize(ray.direction).y + 1.0);
             vec3 sky_color = mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), t);
-            color *= sky_color;
+            final_color += attenuation * sky_color;
             break;
         }
+        
+        // Energy conservation check
+        if (length(attenuation) < 0.001) break;
     }
     
-    return color;
+    return final_color;
 }
 
 void main() {

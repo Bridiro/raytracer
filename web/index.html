@@ -115,6 +115,9 @@
                         <h3><span class="accent">//</span> Scene Objects</h3>
                         <div class="button-group">
                             <button id="editorAddSphere" class="primary">Add Sphere</button>
+                            <button id="editorAddBox" class="primary">Add Box</button>
+                            <button id="editorAddCylinder" class="primary">Add Cylinder</button>
+                            <button id="editorAddPlane" class="primary">Add Plane</button>
                             <button id="editorClearScene" class="danger">Clear Scene</button>
                             <button id="editorRandomScene">Random Scene</button>
                         </div>
@@ -128,34 +131,113 @@
                         <h3><span class="accent">//</span> Object Properties</h3>
                         <div class="object-properties" id="editorObjectProperties">
                             <div class="parameter">
-                                <label>Position X: <span id="editorPosXValue">0.0</span></label>
-                                <input type="range" id="editorPosX" min="-10" max="10" value="0" step="0.1" class="range-input">
-                            </div>
-                            <div class="parameter">
-                                <label>Position Y: <span id="editorPosYValue">0.0</span></label>
-                                <input type="range" id="editorPosY" min="-5" max="5" value="0" step="0.1" class="range-input">
-                            </div>
-                            <div class="parameter">
-                                <label>Position Z: <span id="editorPosZValue">0.0</span></label>
-                                <input type="range" id="editorPosZ" min="-10" max="10" value="0" step="0.1" class="range-input">
-                            </div>
-                            <div class="parameter">
-                                <label>Radius: <span id="editorRadiusValue">1.0</span></label>
-                                <input type="range" id="editorRadius" min="0.1" max="3" value="1" step="0.1" class="range-input">
-                            </div>
-                            <div class="parameter">
-                                <label>Material:</label>
-                                <select id="editorMaterialType" class="select-input">
-                                    <option value="0">Lambertian</option>
-                                    <option value="1">Metal</option>
-                                    <option value="2">Dielectric (Glass)</option>
+                                <label>Object Type:</label>
+                                <select id="editorObjectType" class="select-input">
+                                    <option value="sphere">Sphere</option>
+                                    <option value="box">Box</option>
+                                    <option value="cylinder">Cylinder</option>
+                                    <option value="plane">Plane</option>
                                 </select>
                             </div>
-                            <div class="parameter">
-                                <label>Color:</label>
-                                <input type="color" id="editorObjectColor" value="#ff6b6b" class="color-input">
+                            
+                            <div class="parameter-group" id="positionGroup">
+                                <h4>Position</h4>
+                                <div class="parameter">
+                                    <label>X: <span id="editorPosXValue">0.0</span></label>
+                                    <input type="range" id="editorPosX" min="-10" max="10" value="0" step="0.1" class="range-input">
+                                </div>
+                                <div class="parameter">
+                                    <label>Y: <span id="editorPosYValue">0.0</span></label>
+                                    <input type="range" id="editorPosY" min="-5" max="5" value="0" step="0.1" class="range-input">
+                                </div>
+                                <div class="parameter">
+                                    <label>Z: <span id="editorPosZValue">0.0</span></label>
+                                    <input type="range" id="editorPosZ" min="-10" max="10" value="0" step="0.1" class="range-input">
+                                </div>
                             </div>
+                            
+                            <!-- Sphere-specific parameters -->
+                            <div class="parameter-group" id="sphereParams">
+                                <h4>Sphere Properties</h4>
+                                <div class="parameter">
+                                    <label>Radius: <span id="editorRadiusValue">1.0</span></label>
+                                    <input type="range" id="editorRadius" min="0.1" max="3" value="1" step="0.1" class="range-input">
+                                </div>
+                            </div>
+                            
+                            <!-- Box-specific parameters -->
+                            <div class="parameter-group" id="boxParams" style="display: none;">
+                                <h4>Box Properties</h4>
+                                <div class="parameter">
+                                    <label>Width (X): <span id="editorBoxWidthValue">1.0</span></label>
+                                    <input type="range" id="editorBoxWidth" min="0.1" max="5" value="1" step="0.1" class="range-input">
+                                </div>
+                                <div class="parameter">
+                                    <label>Height (Y): <span id="editorBoxHeightValue">1.0</span></label>
+                                    <input type="range" id="editorBoxHeight" min="0.1" max="5" value="1" step="0.1" class="range-input">
+                                </div>
+                                <div class="parameter">
+                                    <label>Depth (Z): <span id="editorBoxDepthValue">1.0</span></label>
+                                    <input type="range" id="editorBoxDepth" min="0.1" max="5" value="1" step="0.1" class="range-input">
+                                </div>
+                            </div>
+                            
+                            <!-- Cylinder-specific parameters -->
+                            <div class="parameter-group" id="cylinderParams" style="display: none;">
+                                <h4>Cylinder Properties</h4>
+                                <div class="parameter">
+                                    <label>Radius: <span id="editorCylinderRadiusValue">0.5</span></label>
+                                    <input type="range" id="editorCylinderRadius" min="0.1" max="3" value="0.5" step="0.1" class="range-input">
+                                </div>
+                                <div class="parameter">
+                                    <label>Height: <span id="editorCylinderHeightValue">2.0</span></label>
+                                    <input type="range" id="editorCylinderHeight" min="0.1" max="5" value="2" step="0.1" class="range-input">
+                                </div>
+                            </div>
+                            
+                            <!-- Plane-specific parameters -->
+                            <div class="parameter-group" id="planeParams" style="display: none;">
+                                <h4>Plane Properties</h4>
+                                <div class="parameter">
+                                    <label>Normal X: <span id="editorPlaneNormalXValue">0.0</span></label>
+                                    <input type="range" id="editorPlaneNormalX" min="-1" max="1" value="0" step="0.1" class="range-input">
+                                </div>
+                                <div class="parameter">
+                                    <label>Normal Y: <span id="editorPlaneNormalYValue">1.0</span></label>
+                                    <input type="range" id="editorPlaneNormalY" min="-1" max="1" value="1" step="0.1" class="range-input">
+                                </div>
+                                <div class="parameter">
+                                    <label>Normal Z: <span id="editorPlaneNormalZValue">0.0</span></label>
+                                    <input type="range" id="editorPlaneNormalZ" min="-1" max="1" value="0" step="0.1" class="range-input">
+                                </div>
+                            </div>
+                            
+                            <div class="parameter-group" id="materialGroup">
+                                <h4>Material</h4>
+                                <div class="parameter">
+                                    <label>Material Type:</label>
+                                    <select id="editorMaterialType" class="select-input">
+                                        <option value="0">Lambertian (Matte)</option>
+                                        <option value="1">Metal</option>
+                                        <option value="2">Glass (Dielectric)</option>
+                                    </select>
+                                </div>
+                                <div class="parameter">
+                                    <label>Color:</label>
+                                    <input type="color" id="editorObjectColor" value="#ff6b6b" class="color-input">
+                                </div>
+                                <div class="parameter" id="roughnessParam">
+                                    <label>Roughness: <span id="editorRoughnessValue">0.0</span></label>
+                                    <input type="range" id="editorRoughness" min="0" max="1" value="0" step="0.05" class="range-input">
+                                </div>
+                                <div class="parameter" id="iorParam" style="display: none;">
+                                    <label>Refractive Index: <span id="editorIorValue">1.5</span></label>
+                                    <input type="range" id="editorIor" min="1.0" max="3.0" value="1.5" step="0.1" class="range-input">
+                                </div>
+                            </div>
+                            
                             <button id="applyProperties" class="primary">Apply Changes</button>
+                            <button id="deleteSelected" class="danger">Delete Object</button>
                         </div>
                     </div>
 

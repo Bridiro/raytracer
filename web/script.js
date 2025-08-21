@@ -546,9 +546,21 @@ class RaytracerApp {
     }
     
     setupSceneEditor() {
-        // Editor controls
+        // Editor controls for adding objects
         document.getElementById('editorAddSphere').addEventListener('click', () => {
-            this.addSphereInEditor();
+            this.addObjectInEditor('sphere');
+        });
+        
+        document.getElementById('editorAddBox').addEventListener('click', () => {
+            this.addObjectInEditor('box');
+        });
+        
+        document.getElementById('editorAddCylinder').addEventListener('click', () => {
+            this.addObjectInEditor('cylinder');
+        });
+        
+        document.getElementById('editorAddPlane').addEventListener('click', () => {
+            this.addObjectInEditor('plane');
         });
         
         document.getElementById('editorClearScene').addEventListener('click', () => {
@@ -566,8 +578,14 @@ class RaytracerApp {
             this.updateEditorObjectList();
             this.updateEditorViews();
         });
-        
-        // Object property controls
+
+        // Object type selection
+        document.getElementById('editorObjectType').addEventListener('change', (e) => {
+            this.updateParameterVisibility(e.target.value);
+            this.updateSelectedObjectFromEditor();
+        });
+
+        // Position controls
         document.getElementById('editorPosX').addEventListener('input', (e) => {
             document.getElementById('editorPosXValue').textContent = parseFloat(e.target.value).toFixed(1);
             this.updateSelectedObjectFromEditor();
@@ -582,24 +600,84 @@ class RaytracerApp {
             document.getElementById('editorPosZValue').textContent = parseFloat(e.target.value).toFixed(1);
             this.updateSelectedObjectFromEditor();
         });
-        
+
+        // Sphere controls
         document.getElementById('editorRadius').addEventListener('input', (e) => {
             document.getElementById('editorRadiusValue').textContent = parseFloat(e.target.value).toFixed(1);
             this.updateSelectedObjectFromEditor();
         });
+
+        // Box controls
+        document.getElementById('editorBoxWidth').addEventListener('input', (e) => {
+            document.getElementById('editorBoxWidthValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
         
+        document.getElementById('editorBoxHeight').addEventListener('input', (e) => {
+            document.getElementById('editorBoxHeightValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
+        
+        document.getElementById('editorBoxDepth').addEventListener('input', (e) => {
+            document.getElementById('editorBoxDepthValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
+
+        // Cylinder controls
+        document.getElementById('editorCylinderRadius').addEventListener('input', (e) => {
+            document.getElementById('editorCylinderRadiusValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
+        
+        document.getElementById('editorCylinderHeight').addEventListener('input', (e) => {
+            document.getElementById('editorCylinderHeightValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
+
+        // Plane controls
+        document.getElementById('editorPlaneNormalX').addEventListener('input', (e) => {
+            document.getElementById('editorPlaneNormalXValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
+        
+        document.getElementById('editorPlaneNormalY').addEventListener('input', (e) => {
+            document.getElementById('editorPlaneNormalYValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
+        
+        document.getElementById('editorPlaneNormalZ').addEventListener('input', (e) => {
+            document.getElementById('editorPlaneNormalZValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
+
+        // Material controls
         document.getElementById('editorMaterialType').addEventListener('change', (e) => {
+            this.updateMaterialControls(parseInt(e.target.value));
             this.updateSelectedObjectFromEditor();
         });
         
         document.getElementById('editorObjectColor').addEventListener('change', (e) => {
             this.updateSelectedObjectFromEditor();
         });
+
+        document.getElementById('editorRoughness').addEventListener('input', (e) => {
+            document.getElementById('editorRoughnessValue').textContent = parseFloat(e.target.value).toFixed(2);
+            this.updateSelectedObjectFromEditor();
+        });
+
+        document.getElementById('editorIor').addEventListener('input', (e) => {
+            document.getElementById('editorIorValue').textContent = parseFloat(e.target.value).toFixed(1);
+            this.updateSelectedObjectFromEditor();
+        });
         
         document.getElementById('applyProperties').addEventListener('click', () => {
             this.updateSelectedObjectFromEditor();
         });
-        
+
+        document.getElementById('deleteSelected').addEventListener('click', () => {
+            this.deleteSelectedObject();
+        });
+
         // Camera controls
         document.getElementById('editorCamX').addEventListener('input', (e) => {
             document.getElementById('editorCamXValue').textContent = parseFloat(e.target.value).toFixed(1);
@@ -623,51 +701,150 @@ class RaytracerApp {
         });
     }
     
-    addSphereInEditor() {
-        // Default sphere settings for editor
-        const x = 0.0;
-        const y = 0.0;
-        const z = -2.0;
-        const radius = 1.0;
+    addObjectInEditor(objectType) {
+        // Default settings for different object types
+        const x = 0.0, y = 0.0, z = -2.0;
         const r = 1.0, g = 0.4, b = 0.4; // Default red color
         const materialType = 0; // Lambertian
         
-        this.raytracer.add_sphere(x, y, z, radius, r, g, b, materialType);
+        switch (objectType) {
+            case 'sphere':
+                this.raytracer.add_sphere(x, y, z, 1.0, r, g, b, materialType);
+                break;
+            case 'box':
+                this.raytracer.add_box(x, y, z, 1.0, 1.0, 1.0, r, g, b, materialType);
+                break;
+            case 'cylinder':
+                this.raytracer.add_cylinder(x, y, z, 0.5, 2.0, r, g, b, materialType);
+                break;
+            case 'plane':
+                this.raytracer.add_plane(x, y, z, 0.0, 1.0, 0.0, r, g, b, materialType);
+                break;
+        }
+        
         this.updateObjectCount();
         this.updateEditorObjectList();
         this.updateEditorViews();
         
-        // Select the newly added sphere
+        // Select the newly added object (assuming spheres for now - will need to track object types)
         const sphereCount = this.raytracer.get_sphere_count();
-        if (sphereCount > 0) {
-            this.selectObject(sphereCount - 1);
+        if (sphereCount > 0 && objectType === 'sphere') {
+            this.selectObject('sphere', sphereCount - 1);
         }
     }
+
+    updateParameterVisibility(objectType) {
+        // Hide all parameter groups first
+        document.getElementById('sphereParams').style.display = 'none';
+        document.getElementById('boxParams').style.display = 'none';
+        document.getElementById('cylinderParams').style.display = 'none';
+        document.getElementById('planeParams').style.display = 'none';
+        
+        // Show the relevant parameter group
+        switch (objectType) {
+            case 'sphere':
+                document.getElementById('sphereParams').style.display = 'block';
+                break;
+            case 'box':
+                document.getElementById('boxParams').style.display = 'block';
+                break;
+            case 'cylinder':
+                document.getElementById('cylinderParams').style.display = 'block';
+                break;
+            case 'plane':
+                document.getElementById('planeParams').style.display = 'block';
+                break;
+        }
+    }
+
+    updateMaterialControls(materialType) {
+        const roughnessParam = document.getElementById('roughnessParam');
+        const iorParam = document.getElementById('iorParam');
+        
+        // Show/hide relevant material parameters
+        switch (materialType) {
+            case 0: // Lambertian
+                roughnessParam.style.display = 'none';
+                iorParam.style.display = 'none';
+                break;
+            case 1: // Metal
+                roughnessParam.style.display = 'block';
+                iorParam.style.display = 'none';
+                break;
+            case 2: // Dielectric/Glass
+                roughnessParam.style.display = 'none';
+                iorParam.style.display = 'block';
+                break;
+        }
+    }
+
+    deleteSelectedObject() {
+        if (this.selectedObject === null) return;
+        
+        // For now, we'll only handle spheres since that's what's implemented
+        // This will need to be expanded when we support all geometry types
+        if (this.selectedObject.type === 'sphere') {
+            this.raytracer.remove_sphere(this.selectedObject.index);
+        }
+        
+        this.selectedObject = null;
+        this.updateObjectCount();
+        this.updateEditorObjectList();
+        this.updateEditorViews();
+    }
+
+    addSphereInEditor() {
+        this.addObjectInEditor('sphere');
+    }
     
-    selectObject(index) {
-        this.selectedObject = index;
+    selectObject(type, index) {
+        this.selectedObject = { type, index };
         this.updateEditorObjectList();
         this.updateObjectPropertiesFromSelected();
-        this.updateEditorViews();
+        this.render(); // Update rendering to show selection
+    }
+
+    rgbToHex(r, g, b) {
+        const toHex = (c) => {
+            const hex = Math.round(c * 255).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        };
+        return '#' + toHex(r) + toHex(g) + toHex(b);
+    }
+
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [
+            parseInt(result[1], 16) / 255.0,
+            parseInt(result[2], 16) / 255.0,
+            parseInt(result[3], 16) / 255.0
+        ] : [1.0, 1.0, 1.0];
     }
     
     updateObjectPropertiesFromSelected() {
         if (this.selectedObject === null) return;
         
-        const pos = this.raytracer.get_sphere_position(this.selectedObject);
-        const radius = this.raytracer.get_sphere_radius(this.selectedObject);
-        
-        // Update position controls
-        document.getElementById('editorPosX').value = pos[0];
-        document.getElementById('editorPosXValue').textContent = pos[0].toFixed(1);
-        document.getElementById('editorPosY').value = pos[1];
-        document.getElementById('editorPosYValue').textContent = pos[1].toFixed(1);
-        document.getElementById('editorPosZ').value = pos[2];
-        document.getElementById('editorPosZValue').textContent = pos[2].toFixed(1);
-        
-        // Update radius control
-        document.getElementById('editorRadius').value = radius;
-        document.getElementById('editorRadiusValue').textContent = radius.toFixed(1);
+        // For now, handle only spheres since that's what's currently implemented
+        if (this.selectedObject.type === 'sphere') {
+            const pos = this.raytracer.get_sphere_position(this.selectedObject.index);
+            const radius = this.raytracer.get_sphere_radius(this.selectedObject.index);
+            
+            // Update object type dropdown
+            document.getElementById('editorObjectType').value = 'sphere';
+            this.updateParameterVisibility('sphere');
+            
+            // Update position controls
+            document.getElementById('editorPosX').value = pos[0];
+            document.getElementById('editorPosXValue').textContent = pos[0].toFixed(1);
+            document.getElementById('editorPosY').value = pos[1];
+            document.getElementById('editorPosYValue').textContent = pos[1].toFixed(1);
+            document.getElementById('editorPosZ').value = pos[2];
+            document.getElementById('editorPosZValue').textContent = pos[2].toFixed(1);
+            
+            // Update radius control
+            document.getElementById('editorRadius').value = radius;
+            document.getElementById('editorRadiusValue').textContent = radius.toFixed(1);
+        }
     }
     
     initializeEditorCanvases() {
@@ -750,51 +927,89 @@ class RaytracerApp {
     }
     
     drawObjectsInView(ctx, width, height, viewName) {
-        const sphereCount = this.raytracer.get_sphere_count();
         const centerX = width / 2;
         const centerY = height / 2;
         const scale = 50; // pixels per unit
         
+        // Draw spheres
+        const sphereCount = this.raytracer.get_sphere_count();
         for (let i = 0; i < sphereCount; i++) {
             const pos = this.raytracer.get_sphere_position(i);
-            let screenX, screenY, radius;
+            const radius = this.raytracer.get_sphere_radius(i);
+            let screenX, screenY, displayRadius;
             
             // Project to 2D based on view
             switch (viewName) {
                 case 'top': // XZ view
                     screenX = centerX + pos[0] * scale;
                     screenY = centerY + pos[2] * scale;
+                    displayRadius = radius * scale;
                     break;
                 case 'side': // XY view
                     screenX = centerX + pos[0] * scale;
                     screenY = centerY - pos[1] * scale;
+                    displayRadius = radius * scale;
                     break;
                 case 'front': // YZ view
                     screenX = centerX + pos[1] * scale;
                     screenY = centerY + pos[2] * scale;
+                    displayRadius = radius * scale;
                     break;
                 default:
                     continue;
             }
             
-            radius = 20; // Fixed radius for 2D view
+            // Check if this sphere is selected
+            const isSelected = this.selectedObject && 
+                              this.selectedObject.type === 'sphere' && 
+                              this.selectedObject.index === i;
             
-            // Draw sphere
-            ctx.fillStyle = this.selectedObject === i ? '#00d4aa' : '#e94560';
+            // Draw sphere as circle
+            ctx.fillStyle = isSelected ? '#00d4aa' : '#e94560';
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             
             ctx.beginPath();
-            ctx.arc(screenX, screenY, radius, 0, 2 * Math.PI);
+            ctx.arc(screenX, screenY, Math.max(displayRadius, 8), 0, 2 * Math.PI);
             ctx.fill();
             ctx.stroke();
             
-            // Draw index
+            // Draw type indicator and index
             ctx.fillStyle = '#fff';
-            ctx.font = '12px monospace';
+            ctx.font = '10px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(i.toString(), screenX, screenY + 4);
+            ctx.fillText('S' + i, screenX, screenY + 3);
         }
+        
+        // TODO: Draw other object types when they're available
+        // For now, we'll add placeholder functions for future geometry types
+        
+        // Draw boxes (when implemented)
+        this.drawBoxesInView(ctx, width, height, viewName, centerX, centerY, scale);
+        
+        // Draw cylinders (when implemented)
+        this.drawCylindersInView(ctx, width, height, viewName, centerX, centerY, scale);
+        
+        // Draw planes (when implemented)
+        this.drawPlanesInView(ctx, width, height, viewName, centerX, centerY, scale);
+    }
+    
+    drawBoxesInView(ctx, width, height, viewName, centerX, centerY, scale) {
+        // Placeholder for box drawing - will be implemented when WASM bindings are ready
+        // const boxCount = this.raytracer.get_box_count();
+        // for (let i = 0; i < boxCount; i++) { ... }
+    }
+    
+    drawCylindersInView(ctx, width, height, viewName, centerX, centerY, scale) {
+        // Placeholder for cylinder drawing - will be implemented when WASM bindings are ready
+        // const cylinderCount = this.raytracer.get_cylinder_count();
+        // for (let i = 0; i < cylinderCount; i++) { ... }
+    }
+    
+    drawPlanesInView(ctx, width, height, viewName, centerX, centerY, scale) {
+        // Placeholder for plane drawing - will be implemented when WASM bindings are ready
+        // const planeCount = this.raytracer.get_plane_count();
+        // for (let i = 0; i < planeCount; i++) { ... }
     }
     
     drawCameraInView(ctx, width, height, viewName) {
@@ -845,7 +1060,7 @@ class RaytracerApp {
         // Check if clicking on an object
         const clickedObject = this.getObjectAtPosition(viewName, x, y);
         if (clickedObject !== null) {
-            this.selectObject(clickedObject);
+            this.selectObject(clickedObject.type, clickedObject.index);
         }
     }
     
@@ -855,6 +1070,7 @@ class RaytracerApp {
         const centerY = this.viewCanvases[viewName].height / 2;
         const scale = 50;
         
+        // Check spheres
         for (let i = 0; i < sphereCount; i++) {
             const pos = this.raytracer.get_sphere_position(i);
             let objScreenX, objScreenY;
@@ -878,19 +1094,16 @@ class RaytracerApp {
             
             const distance = Math.sqrt((screenX - objScreenX) ** 2 + (screenY - objScreenY) ** 2);
             if (distance <= 20) { // Click tolerance
-                return i;
+                return { type: 'sphere', index: i };
             }
         }
+        
+        // TODO: Add detection for other object types when implemented
+        // Check boxes, cylinders, planes...
+        
         return null;
     }
-    
-    selectObject(index) {
-        this.selectedObject = index;
-        this.updateEditorObjectList();
-        this.loadObjectProperties(index);
-        this.updateEditorViews();
-    }
-    
+
     loadObjectProperties(index) {
         const pos = this.raytracer.get_sphere_position(index);
         const radius = this.raytracer.get_sphere_radius(index);
@@ -911,7 +1124,6 @@ class RaytracerApp {
         const x = parseFloat(document.getElementById('editorPosX').value);
         const y = parseFloat(document.getElementById('editorPosY').value);
         const z = parseFloat(document.getElementById('editorPosZ').value);
-        const radius = parseFloat(document.getElementById('editorRadius').value);
         const materialType = parseInt(document.getElementById('editorMaterialType').value);
         const color = document.getElementById('editorObjectColor').value;
         
@@ -920,9 +1132,24 @@ class RaytracerApp {
         const g = parseInt(color.substr(3, 2), 16) / 255;
         const b = parseInt(color.substr(5, 2), 16) / 255;
         
-        this.raytracer.set_sphere_position(this.selectedObject, x, y, z);
-        this.raytracer.set_sphere_radius(this.selectedObject, radius);
-        this.raytracer.set_sphere_material(this.selectedObject, r, g, b, materialType);
+        // Get material properties
+        let roughness = 0.0;
+        let ior = 1.5;
+        
+        if (materialType === 1) { // Metal
+            roughness = parseFloat(document.getElementById('editorRoughness').value);
+        } else if (materialType === 2) { // Glass
+            ior = parseFloat(document.getElementById('editorIor').value);
+        }
+        
+        // Update based on object type
+        if (this.selectedObject.type === 'sphere') {
+            const radius = parseFloat(document.getElementById('editorRadius').value);
+            this.raytracer.set_sphere_position(this.selectedObject.index, x, y, z);
+            this.raytracer.set_sphere_radius(this.selectedObject.index, radius);
+            this.raytracer.set_sphere_material(this.selectedObject.index, r, g, b, materialType, roughness, ior);
+        }
+        // TODO: Add support for other object types when WASM bindings are ready
         
         this.updateEditorObjectList();
         this.updateEditorViews();
@@ -956,11 +1183,17 @@ class RaytracerApp {
         listContainer.innerHTML = '';
         
         const sphereCount = this.raytracer.get_sphere_count();
+        // TODO: Add counts for other object types when implemented
+        // const boxCount = this.raytracer.get_box_count();
+        // const cylinderCount = this.raytracer.get_cylinder_count();
+        // const planeCount = this.raytracer.get_plane_count();
         
-        if (sphereCount === 0) {
+        const totalObjects = sphereCount; // + boxCount + cylinderCount + planeCount;
+        
+        if (totalObjects === 0) {
             const emptyMessage = document.createElement('div');
             emptyMessage.className = 'empty-message';
-            emptyMessage.textContent = 'No objects in scene. Click "Add Sphere" to start.';
+            emptyMessage.textContent = 'No objects in scene. Add objects to start.';
             emptyMessage.style.cssText = `
                 padding: 10px;
                 color: #666;
@@ -974,22 +1207,53 @@ class RaytracerApp {
             return;
         }
         
+        // Add spheres to list
         for (let i = 0; i < sphereCount; i++) {
             const position = this.raytracer.get_sphere_position(i);
             const objectItem = document.createElement('div');
             objectItem.className = 'object-item';
-            if (this.selectedObject === i) {
+            
+            const isSelected = this.selectedObject && 
+                              this.selectedObject.type === 'sphere' && 
+                              this.selectedObject.index === i;
+            
+            if (isSelected) {
                 objectItem.classList.add('selected');
             }
             
-            objectItem.innerHTML = `Sphere ${i + 1} (${position[0].toFixed(1)}, ${position[1].toFixed(1)}, ${position[2].toFixed(1)})`;
+            // Add sphere icon and info
+            objectItem.innerHTML = `
+                <span class="object-icon">🔴</span>
+                <span class="object-info">
+                    <strong>Sphere ${i + 1}</strong><br>
+                    <small>(${position[0].toFixed(1)}, ${position[1].toFixed(1)}, ${position[2].toFixed(1)})</small>
+                </span>
+            `;
             
             objectItem.addEventListener('click', () => {
-                this.selectObject(i);
+                this.selectObject('sphere', i);
             });
             
             listContainer.appendChild(objectItem);
         }
+        
+        // TODO: Add other object types when implemented
+        /*
+        // Add boxes to list
+        for (let i = 0; i < boxCount; i++) {
+            // Similar implementation for boxes
+        }
+        
+        // Add cylinders to list
+        for (let i = 0; i < cylinderCount; i++) {
+            // Similar implementation for cylinders
+        }
+        
+        // Add planes to list
+        for (let i = 0; i < planeCount; i++) {
+            // Similar implementation for planes
+        }
+        */
     }
     
     handleCanvasMouseMove(viewName, event) {

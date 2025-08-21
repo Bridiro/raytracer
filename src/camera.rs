@@ -47,18 +47,10 @@ impl Camera {
     }
 
     pub fn move_relative(&mut self, forward: f32, right: f32, up: f32) {
-        let movement_yaw = -self.yaw;
-        let cos_yaw = movement_yaw.cos();
-        let sin_yaw = movement_yaw.sin();
-
-        let forward_vec = Vec3::new(-sin_yaw, 0.0, -cos_yaw);
-        let right_vec = Vec3::new(cos_yaw, 0.0, -sin_yaw);
-
-        let up_vec = Vec3::new(0.0, 1.0, 0.0);
-
-        self.position = self.position + forward_vec * forward;
-        self.position = self.position + right_vec * right;
-        self.position = self.position + up_vec * up;
+        // Use the camera's actual basis vectors for movement
+        self.position = self.position + self.forward * forward;
+        self.position = self.position + self.right * right;
+        self.position = self.position + Vec3::new(0.0, 1.0, 0.0) * up; // World up for vertical movement
     }
 
     pub fn move_absolute(&mut self, x: f32, y: f32, z: f32) {
@@ -86,23 +78,33 @@ impl Camera {
     }
 
     fn update_vectors(&mut self) {
-        let cos_yaw = self.yaw.cos();
-        let sin_yaw = self.yaw.sin();
-        let cos_pitch = self.pitch.cos();
-        let sin_pitch = self.pitch.sin();
+        // Start with base forward direction
+        let mut forward = Vec3::new(0.0, 0.0, -1.0);
 
-        let horizontal_forward = Vec3::new(-sin_yaw, 0.0, -cos_yaw);
+        // Apply pitch first (rotation around X-axis)
+        let pitch_cos = self.pitch.cos();
+        let pitch_sin = self.pitch.sin();
+        forward = Vec3::new(
+            forward.x,
+            forward.y * pitch_cos - forward.z * pitch_sin,
+            forward.y * pitch_sin + forward.z * pitch_cos,
+        );
 
-        self.forward = Vec3::new(
-            horizontal_forward.x * cos_pitch,
-            sin_pitch,
-            horizontal_forward.z * cos_pitch,
-        )
-        .normalize();
+        // Then apply yaw (rotation around Y-axis)
+        let yaw_cos = self.yaw.cos();
+        let yaw_sin = self.yaw.sin();
+        forward = Vec3::new(
+            forward.x * yaw_cos + forward.z * yaw_sin,
+            forward.y,
+            -forward.x * yaw_sin + forward.z * yaw_cos,
+        );
 
-        self.up = Vec3::new(0.0, 1.0, 0.0);
+        self.forward = forward.normalize();
 
-        self.right = Vec3::new(cos_yaw, 0.0, -sin_yaw).normalize();
+        // Calculate right and up vectors
+        let world_up = Vec3::new(0.0, 1.0, 0.0);
+        self.right = world_up.cross(&self.forward).normalize();
+        self.up = self.forward.cross(&self.right).normalize();
 
         self.target = self.position + self.forward;
     }
@@ -112,7 +114,7 @@ impl Camera {
         let direction = (target - self.position).normalize();
 
         // Calculate yaw and pitch from direction
-        self.yaw = direction.z.atan2(direction.x);
+        self.yaw = (-direction.x).atan2(-direction.z);
         self.pitch = direction.y.asin();
 
         self.update_vectors();
@@ -155,5 +157,17 @@ impl Camera {
 
     pub fn get_target(&self) -> Vec3 {
         self.target
+    }
+
+    pub fn get_forward(&self) -> Vec3 {
+        self.forward
+    }
+
+    pub fn get_right(&self) -> Vec3 {
+        self.right
+    }
+
+    pub fn get_up(&self) -> Vec3 {
+        self.up
     }
 }

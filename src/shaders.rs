@@ -19,9 +19,11 @@ pub fn create_raytracing_program(gl: &WebGlRenderingContext) -> Result<WebGlProg
         
         uniform vec2 u_resolution;
         uniform vec3 u_camera_pos;
-        uniform mat4 u_camera_matrix;
         uniform float u_time;
-        
+        uniform vec3 u_camera_forward;
+        uniform vec3 u_camera_right;
+        uniform vec3 u_camera_up;
+
         // Scene data structures
         struct Material {
             vec3 albedo;
@@ -305,34 +307,31 @@ pub fn create_raytracing_program(gl: &WebGlRenderingContext) -> Result<WebGlProg
             vec2 uv = (gl_FragCoord.xy / u_resolution.xy) * 2.0 - 1.0;
             uv.x *= u_resolution.x / u_resolution.y;
             
-            // Create camera ray
-            vec3 ray_dir = normalize(vec3(uv, -2.0)); // Simple perspective projection
-            
-            // Transform ray direction by camera matrix
-            ray_dir = (u_camera_matrix * vec4(ray_dir, 0.0)).xyz;
-            
+            // Create ray direction using camera basis vectors
+            vec3 ray_dir = normalize(u_camera_forward + uv.x * u_camera_right + uv.y * u_camera_up);
+
             Ray ray;
             ray.origin = u_camera_pos;
-            ray.direction = normalize(ray_dir);
-            
+            ray.direction = ray_dir;
+
             // Multi-sampling for anti-aliasing
             vec3 color = vec3(0.0);
-            
+
             for (int i = 0; i < 4; i++) {
                 vec2 offset = vec2(float(i) * 0.25, fract(float(i) * 0.618)) / u_resolution;
                 vec2 sample_uv = uv + offset;
                 
-                vec3 sample_ray_dir = normalize(vec3(sample_uv, -2.0));
-                sample_ray_dir = (u_camera_matrix * vec4(sample_ray_dir, 0.0)).xyz;
+                // Create ray direction using camera basis vectors
+                vec3 sample_ray_dir = normalize(u_camera_forward + sample_uv.x * u_camera_right + sample_uv.y * u_camera_up);
                 
                 Ray sample_ray;
                 sample_ray.origin = u_camera_pos;
-                sample_ray.direction = normalize(sample_ray_dir);
+                sample_ray.direction = sample_ray_dir;
                 
                 vec2 seed = gl_FragCoord.xy + u_time + float(i);
                 color += rayColor(sample_ray, seed);
             }
-            
+
             color /= 4.0;
             
             // Tone mapping and gamma correction

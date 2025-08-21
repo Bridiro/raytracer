@@ -25,8 +25,10 @@ pub struct Raytracer {
     // Uniforms
     u_resolution: Option<WebGlUniformLocation>,
     u_camera_pos: Option<WebGlUniformLocation>,
-    u_camera_matrix: Option<WebGlUniformLocation>,
     u_time: Option<WebGlUniformLocation>,
+    u_camera_forward: Option<WebGlUniformLocation>,
+    u_camera_right: Option<WebGlUniformLocation>,
+    u_camera_up: Option<WebGlUniformLocation>,
 
     // Performance tracking
     last_frame_time: f64,
@@ -49,8 +51,10 @@ impl Raytracer {
         // Get uniform locations
         let u_resolution = gl.get_uniform_location(&program, "u_resolution");
         let u_camera_pos = gl.get_uniform_location(&program, "u_camera_pos");
-        let u_camera_matrix = gl.get_uniform_location(&program, "u_camera_matrix");
         let u_time = gl.get_uniform_location(&program, "u_time");
+        let u_camera_forward = gl.get_uniform_location(&program, "u_camera_forward");
+        let u_camera_right = gl.get_uniform_location(&program, "u_camera_right");
+        let u_camera_up = gl.get_uniform_location(&program, "u_camera_up");
 
         let camera = Camera::new(
             Vec3::new(0.0, 2.0, 5.0),
@@ -118,8 +122,10 @@ impl Raytracer {
             scene,
             u_resolution,
             u_camera_pos,
-            u_camera_matrix,
             u_time,
+            u_camera_forward,
+            u_camera_right,
+            u_camera_up,
             last_frame_time: Date::now(),
             frame_times: Vec::with_capacity(60),
             fps: 0.0,
@@ -173,12 +179,21 @@ impl Raytracer {
             camera_pos.z,
         );
 
-        let view_matrix = self.camera.view_matrix();
-        self.gl.uniform_matrix4fv_with_f32_array(
-            self.u_camera_matrix.as_ref(),
-            false,
-            &view_matrix.as_array(),
+        // Replace the matrix with basis vectors
+        let forward = self.camera.get_forward();
+        let right = self.camera.get_right();
+        let up = self.camera.get_up();
+
+        self.gl.uniform3f(
+            self.u_camera_forward.as_ref(),
+            forward.x,
+            forward.y,
+            forward.z,
         );
+        self.gl
+            .uniform3f(self.u_camera_right.as_ref(), right.x, right.y, right.z);
+        self.gl
+            .uniform3f(self.u_camera_up.as_ref(), up.x, up.y, up.z);
 
         self.gl
             .uniform1f(self.u_time.as_ref(), (current_time / 1000.0) as f32);

@@ -13,7 +13,7 @@ pub struct Material {
     pub material_type: MaterialType,
     pub albedo: Vec3,
     pub roughness: f32,
-    pub ior: f32,  // Index of refraction
+    pub ior: f32, // Index of refraction
 }
 
 impl Material {
@@ -25,19 +25,19 @@ impl Material {
             ior,
         }
     }
-    
+
     pub fn lambertian(albedo: Vec3) -> Self {
         Self::new(MaterialType::Lambertian, albedo, 0.0, 1.0)
     }
-    
+
     pub fn metal(albedo: Vec3, roughness: f32) -> Self {
         Self::new(MaterialType::Metal, albedo, roughness.clamp(0.0, 1.0), 1.0)
     }
-    
+
     pub fn dielectric(ior: f32) -> Self {
         Self::new(MaterialType::Dielectric, Vec3::new(1.0, 1.0, 1.0), 0.0, ior)
     }
-    
+
     pub fn emissive(color: Vec3) -> Self {
         Self::new(MaterialType::Lambertian, color, 0.0, 1.0)
     }

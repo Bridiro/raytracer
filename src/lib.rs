@@ -271,6 +271,31 @@ impl Raytracer {
     }
 
     #[wasm_bindgen]
+    pub fn import_obj_file(
+        &mut self,
+        obj_data: &str,
+        name: &str,
+        r: f32,
+        g: f32,
+        b: f32,
+        material_type: u32,
+        roughness: f32,
+        ior: f32,
+    ) -> Result<(), JsValue> {
+        let material_type_enum = match material_type {
+            1 => MaterialType::Metal,
+            2 => MaterialType::Dielectric,
+            _ => MaterialType::Lambertian,
+        };
+
+        let material = Material::new(material_type_enum, Vec3::new(r, g, b), roughness, ior);
+        
+        self.scene.import_obj_file(obj_data, material, name.to_string())?;
+        
+        Ok(())
+    }
+
+    #[wasm_bindgen]
     pub fn clear_scene(&mut self) {
         self.scene = Scene::new();
         // Re-add ground plane

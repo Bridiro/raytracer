@@ -2,7 +2,7 @@ use crate::material::Material;
 use crate::math::Vec3;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
-use web_sys::{WebGlProgram, WebGlRenderingContext};
+use web_sys::{console, WebGlProgram, WebGlRenderingContext};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sphere {
@@ -100,6 +100,82 @@ impl Triangle {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Mesh {
+    pub triangles: Vec<Triangle>,
+    pub name: String,
+    pub center: Vec3,
+    pub scale: f32,
+}
+
+impl Mesh {
+    pub fn from_blender_obj(obj_data: &str, material: Material, name: String) -> Result<Self, JsValue> {
+        let mut vertices: Vec<Vec3> = Vec::new();
+        let mut triangles: Vec<Triangle> = Vec::new();
+        
+        console::log_1(&format!("Parsing OBJ data: {} lines", obj_data.lines().count()).into());
+        
+        for line in obj_data.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.is_empty() { continue; }
+            
+            match parts[0] {
+                "v" => {
+                    // Vertex
+                    if parts.len() >= 4 {
+                        let x: f32 = parts[1].parse().map_err(|_| JsValue::from_str("Invalid vertex x"))?;
+                        let y: f32 = parts[2].parse().map_err(|_| JsValue::from_str("Invalid vertex y"))?;
+                        let z: f32 = parts[3].parse().map_err(|_| JsValue::from_str("Invalid vertex z"))?;
+                        vertices.push(Vec3::new(x, y, z));
+                    }
+                },
+                "f" => {
+                    // Face (assuming triangular faces)
+                    if parts.len() >= 4 {
+                        // Parse vertex indices (OBJ is 1-indexed)
+                        let i0: usize = parts[1].split('/').next().unwrap().parse::<usize>().map_err(|_| JsValue::from_str("Invalid face index"))? - 1;
+                        let i1: usize = parts[2].split('/').next().unwrap().parse::<usize>().map_err(|_| JsValue::from_str("Invalid face index"))? - 1;
+                        let i2: usize = parts[3].split('/').next().unwrap().parse::<usize>().map_err(|_| JsValue::from_str("Invalid face index"))? - 1;
+                        
+                        if i0 < vertices.len() && i1 < vertices.len() && i2 < vertices.len() {
+                            let v0 = vertices[i0];
+                            let v1 = vertices[i1];
+                            let v2 = vertices[i2];
+                            
+                            triangles.push(Triangle::new(v0, v1, v2, material.clone()));
+                        }
+                    }
+                },
+                _ => {} // Ignore other OBJ commands
+            }
+        }
+        
+        console::log_1(&format!("Created mesh with {} triangles", triangles.len()).into());
+        
+        // Calculate center
+        let mut center = Vec3::new(0.0, 0.0, 0.0);
+        if !vertices.is_empty() {
+            for vertex in &vertices {
+                center = center + *vertex;
+            }
+            center = center / vertices.len() as f32;
+        }
+        
+        Ok(Mesh {
+            triangles,
+            name,
+            center,
+            scale: 1.0,
+        })
+    }
+
+    pub fn add_to_scene_as_triangles(&self, scene: &mut Scene) {
+        for triangle in &self.triangles {
+            scene.triangles.push(triangle.clone());
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Light {
     pub position: Vec3,
     pub color: Vec3,
@@ -158,6 +234,16 @@ impl Scene {
     
     pub fn add_triangle(&mut self, triangle: Triangle) {
         self.triangles.push(triangle);
+    }
+
+    pub fn add_mesh(&mut self, mesh: Mesh) {
+        mesh.add_to_scene_as_triangles(self);
+    }
+
+    pub fn import_obj_file(&mut self, obj_data: &str, material: Material, name: String) -> Result<(), JsValue> {
+        let mesh = Mesh::from_blender_obj(obj_data, material, name)?;
+        self.add_mesh(mesh);
+        Ok(())
     }
 
     pub fn add_light(&mut self, light: Light) {

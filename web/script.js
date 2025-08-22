@@ -563,6 +563,16 @@ class RaytracerApp {
             this.addObjectInEditor('plane');
         });
         
+        // OBJ import controls
+        document.getElementById('importObjBtn').addEventListener('click', () => {
+            const fileInput = document.getElementById('objFileInput');
+            fileInput.click();
+        });
+        
+        document.getElementById('objFileInput').addEventListener('change', (e) => {
+            this.handleObjFileImport(e);
+        });
+        
         document.getElementById('editorClearScene').addEventListener('click', () => {
             this.raytracer.clear_scene();
             this.selectedObject = null;
@@ -731,6 +741,60 @@ class RaytracerApp {
         if (sphereCount > 0 && objectType === 'sphere') {
             this.selectObject('sphere', sphereCount - 1);
         }
+    }
+
+    handleObjFileImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Update status
+        const statusEl = document.getElementById('importStatus');
+        statusEl.textContent = 'Reading file...';
+        statusEl.className = 'status-text';
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                statusEl.textContent = 'Parsing OBJ file...';
+                
+                // Get the file content
+                const objContent = e.target.result;
+                
+                // Default material properties for imported objects
+                const name = file.name.replace('.obj', '');
+                const r = 0.7;  // Default red color
+                const g = 0.3;  // 
+                const b = 0.3;  // 
+                const materialType = 0; // Lambertian
+                const roughness = 0.0;
+                const ior = 1.5;
+                
+                // Call the Rust function to parse and add the mesh
+                this.raytracer.import_obj_file(objContent, name, r, g, b, materialType, roughness, ior);
+                
+                statusEl.textContent = 'OBJ file imported successfully!';
+                statusEl.className = 'status-text success';
+                
+                // Update the scene editor
+                this.updateObjectCount();
+                this.updateEditorObjectList();
+                this.updateEditorViews();
+                
+                // Clear the file input for next use
+                event.target.value = '';
+            } catch (error) {
+                console.error('Error importing OBJ file:', error);
+                statusEl.textContent = 'Error importing OBJ file: ' + error.message;
+                statusEl.className = 'status-text error';
+            }
+        };
+
+        reader.onerror = () => {
+            statusEl.textContent = 'Error reading file.';
+            statusEl.className = 'status-text error';
+        };
+
+        reader.readAsText(file);
     }
 
     updateParameterVisibility(objectType) {

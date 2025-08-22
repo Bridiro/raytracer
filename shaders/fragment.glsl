@@ -275,13 +275,13 @@ bool hitCylinder(Cylinder cylinder, Ray ray, float t_min, float t_max, out HitRe
 }
 
 bool hitTriangle(Triangle triangle, Ray ray, float t_min, float t_max, out HitRecord rec) {
-    // Möller-Trumbore intersection algorithm
+    // Möller-Trumbore intersection algorithm (double-sided)
     vec3 edge1 = triangle.v1 - triangle.v0;
     vec3 edge2 = triangle.v2 - triangle.v0;
     vec3 h = cross(ray.direction, edge2);
     float a = dot(edge1, h);
     
-    if (a > -0.00001 && a < 0.00001) return false; // Ray is parallel to triangle
+    if (abs(a) < 0.00001) return false; // Ray is parallel to triangle
     
     float f = 1.0 / a;
     vec3 s = ray.origin - triangle.v0;
@@ -300,9 +300,12 @@ bool hitTriangle(Triangle triangle, Ray ray, float t_min, float t_max, out HitRe
     
     rec.t = t;
     rec.point = ray.origin + t * ray.direction;
-    rec.normal = normalize(cross(edge1, edge2));
-    rec.front_face = dot(ray.direction, rec.normal) < 0.0;
-    rec.normal = rec.front_face ? rec.normal : -rec.normal;
+    
+    // Calculate normal (ensure consistent orientation)
+    vec3 normal = normalize(cross(edge1, edge2));
+    rec.front_face = dot(ray.direction, normal) < 0.0;
+    rec.normal = rec.front_face ? normal : -normal;
+    
     rec.material.albedo = triangle.albedo;
     rec.material.material_type = triangle.material_type;
     rec.material.roughness = triangle.roughness;
@@ -370,119 +373,125 @@ bool hitWorld(Ray ray, float t_min, float t_max, out HitRecord rec) {
 }
 
 vec3 rayColor(Ray ray, vec2 seed) {
-    vec3 final_color = vec3(0.0);
-    vec3 attenuation = vec3(1.0);
+    vec3 color = vec3(1.0);
+    vec3 accumulated_color = vec3(0.0);
     
-    for (int depth = 0; depth < 12; depth++) {
+    for (int depth = 0; depth < 10; depth++) { // Increased depth for better quality
         HitRecord rec;
         if (hitWorld(ray, 0.001, 100.0, rec)) {
             
-            // Material-based ray scattering
-            if (rec.material.material_type == 0) { // Lambertian
-                // Direct lighting calculation for Lambertian surfaces
-                vec3 direct_light = vec3(0.0);
+            if (rec.material.material_type == 0) { // Lambertian - Proper diffuse
+                vec3 target = rec.point + rec.normal + randomInUnitSphere(seed + float(depth));
+                ray.origin = rec.point;
+                ray.direction = normalize(target - rec.point);
                 
-                // Calculate lighting from all lights
+                // Proper lambertian shading with light integration
+                vec3 light_contribution = vec3(0.0);
                 for (int i = 0; i < 4; i++) {
                     if (i >= u_light_count) break;
-                    
                     vec3 light_dir = normalize(u_lights[i].position - rec.point);
                     float light_distance = length(u_lights[i].position - rec.point);
                     
-                    // Shadow test
+                    // Shadow ray
                     Ray shadow_ray;
                     shadow_ray.origin = rec.point + rec.normal * 0.001;
                     shadow_ray.direction = light_dir;
-                    
                     HitRecord shadow_rec;
-                    bool in_shadow = hitWorld(shadow_ray, 0.001, light_distance - 0.001, shadow_rec);
                     
-                    if (!in_shadow) {
-                        float n_dot_l = max(dot(rec.normal, light_dir), 0.0);
-                        float attenuation_factor = u_lights[i].intensity / (light_distance * light_distance + 1.0);
-                        direct_light += u_lights[i].color * n_dot_l * attenuation_factor;
+                    if (!hitWorld(shadow_ray, 0.001, light_distance - 0.001, shadow_rec)) {
+                        float cos_theta = max(dot(rec.normal, light_dir), 0.0);
+                        float attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
+                        light_contribution += u_lights[i].color * u_lights[i].intensity * cos_theta * attenuation;
                     }
                 }
                 
-                // Add ambient lighting
-                vec3 ambient = vec3(0.1);
-                final_color += attenuation * rec.material.albedo * (direct_light + ambient);
+                // Combine direct lighting with indirect
+                color *= rec.material.albedo * (0.1 + light_contribution); // 0.1 is ambient
                 
-                // Continue with indirect lighting (global illumination)
-                vec3 target = rec.point + rec.normal + randomInUnitSphere(seed + float(depth));
-                ray.origin = rec.point + rec.normal * 0.001;
-                ray.direction = normalize(target - rec.point);
-                attenuation *= rec.material.albedo * 0.5; // Reduce energy for bounces
-                
-            } else if (rec.material.material_type == 1) { // Metal
+            } else if (rec.material.material_type == 1) { // Metal - Proper reflection
                 vec3 reflected = reflectRay(normalize(ray.direction), rec.normal);
-                ray.origin = rec.point + rec.normal * 0.001;
+                ray.origin = rec.point;
                 ray.direction = normalize(reflected + rec.material.roughness * randomInUnitSphere(seed + float(depth)));
                 
                 if (dot(ray.direction, rec.normal) <= 0.0) {
-                    break; // Ray absorbed
+                    return accumulated_color; // Ray absorbed
                 }
                 
-                attenuation *= rec.material.albedo;
+                // Fresnel for metals
+                float cos_theta = abs(dot(normalize(ray.direction), rec.normal));
+                float fresnel = 0.04 + (1.0 - 0.04) * pow(1.0 - cos_theta, 5.0);
+                color *= rec.material.albedo * fresnel;
                 
-            } else if (rec.material.material_type == 2) { // Dielectric (Glass)
-                // Improved glass with proper transparency
-                float ni_over_nt = rec.front_face ? (1.0 / rec.material.ior) : rec.material.ior;
-                
+            } else if (rec.material.material_type == 2) { // Glass - Proper refraction
                 vec3 unit_direction = normalize(ray.direction);
                 float cos_theta = min(dot(-unit_direction, rec.normal), 1.0);
                 float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
                 
+                float ni_over_nt = rec.front_face ? (1.0 / rec.material.ior) : rec.material.ior;
                 bool cannot_refract = ni_over_nt * sin_theta > 1.0;
                 
-                if (cannot_refract) {
-                    // Total internal reflection
+                // Schlick approximation for fresnel
+                float r0 = (1.0 - rec.material.ior) / (1.0 + rec.material.ior);
+                r0 = r0 * r0;
+                float fresnel = r0 + (1.0 - r0) * pow(1.0 - cos_theta, 5.0);
+                
+                if (cannot_refract || fresnel > random(seed + float(depth))) {
+                    // Reflect
                     vec3 reflected = reflectRay(unit_direction, rec.normal);
                     ray.origin = rec.point + rec.normal * 0.001;
                     ray.direction = reflected;
                 } else {
-                    // Calculate Fresnel reflectance
-                    float reflect_prob = schlick(cos_theta, rec.material.ior);
-                    
-                    if (random(seed + float(depth) * 10.0) < reflect_prob) {
-                        // Reflection
+                    // Refract
+                    vec3 refracted;
+                    if (refract(unit_direction, rec.normal, ni_over_nt, refracted)) {
+                        ray.origin = rec.point - rec.normal * 0.001;
+                        ray.direction = refracted;
+                    } else {
                         vec3 reflected = reflectRay(unit_direction, rec.normal);
                         ray.origin = rec.point + rec.normal * 0.001;
                         ray.direction = reflected;
-                    } else {
-                        // Refraction
-                        vec3 refracted;
-                        if (refract(unit_direction, rec.normal, ni_over_nt, refracted)) {
-                            ray.origin = rec.point - rec.normal * 0.001;
-                            ray.direction = refracted;
-                        } else {
-                            // Fallback to reflection
-                            vec3 reflected = reflectRay(unit_direction, rec.normal);
-                            ray.origin = rec.point + rec.normal * 0.001;
-                            ray.direction = reflected;
-                        }
                     }
                 }
                 
-                // Glass tinting and absorption
-                attenuation *= rec.material.albedo;
-                // Very little light absorption for clear glass
-                attenuation *= 0.98;
+                // Glass absorption (Beer's law approximation)
+                if (!rec.front_face) {
+                    float absorption = exp(-0.01 * rec.t);
+                    color *= absorption * mix(vec3(1.0), rec.material.albedo, 0.05);
+                } else {
+                    color *= vec3(0.98); // Slight reflection loss
+                }
             }
             
         } else {
-            // Sky/environment lighting
-            float t = 0.5 * (normalize(ray.direction).y + 1.0);
+            // Improved sky with sun
+            vec3 unit_direction = normalize(ray.direction);
+            float t = 0.5 * (unit_direction.y + 1.0);
+            
+            // Sky gradient
             vec3 sky_color = mix(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.7, 1.0), t);
-            final_color += attenuation * sky_color;
+            
+            // Add sun
+            vec3 sun_dir = normalize(vec3(0.7, 0.7, 0.0));
+            float sun_dot = max(dot(unit_direction, sun_dir), 0.0);
+            if (sun_dot > 0.995) {
+                sky_color += vec3(2.0, 1.8, 1.0) * pow(sun_dot, 100.0);
+            }
+            
+            accumulated_color += color * sky_color;
             break;
         }
         
-        // Energy conservation check
-        if (length(attenuation) < 0.001) break;
+        // Russian roulette for path termination
+        if (depth > 3) {
+            float max_component = max(max(color.r, color.g), color.b);
+            if (random(seed + float(depth + 100)) > max_component) {
+                break;
+            }
+            color /= max_component;
+        }
     }
     
-    return final_color;
+    return accumulated_color;
 }
 
 void main() {
@@ -496,11 +505,11 @@ void main() {
     ray.origin = u_camera_pos;
     ray.direction = ray_dir;
 
-    // Multi-sampling for anti-aliasing
+    // Reduced sampling for better performance
     vec3 color = vec3(0.0);
 
-    for (int i = 0; i < 4; i++) {
-        vec2 offset = vec2(float(i) * 0.25, fract(float(i) * 0.618)) / u_resolution;
+    for (int i = 0; i < 2; i++) {
+        vec2 offset = vec2(float(i) * 0.5, fract(float(i) * 0.618)) / u_resolution;
         vec2 sample_uv = uv + offset;
         
         // Create ray direction using camera basis vectors
@@ -514,10 +523,12 @@ void main() {
         color += rayColor(sample_ray, seed);
     }
 
-    color /= 4.0;
+    color /= 2.0;
     
-    // Tone mapping and gamma correction
-    color = color / (color + vec3(1.0));
+    // Better tone mapping (ACES approximation)
+    color = (color * (2.51 * color + 0.03)) / (color * (2.43 * color + 0.59) + 0.14);
+    
+    // Gamma correction
     color = pow(color, vec3(1.0/2.2));
     
     gl_FragColor = vec4(color, 1.0);

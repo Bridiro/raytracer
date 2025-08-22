@@ -542,3 +542,31 @@ button.preset-btn:hover {
 ::-webkit-scrollbar-thumb:hover {
     background: #00d4aa;
 }
+
+/* Import section styles */
+.import-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+
+.import-section h4 {
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.status-text {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.status-text.success {
+    color: #28a745;
+}
+
+.status-text.error {
+    color: #dc3545;
+}
